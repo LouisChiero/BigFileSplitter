@@ -14,7 +14,8 @@ namespace BigFileSplitter
     {
         private const string SplitFileDefaultFolderName = "SplitFiles";
         private const string DefaultLabelText = "Pick a file to split...";
-        private CancellationTokenSource cancelTokenSource = new CancellationTokenSource();
+        private CancellationTokenSource cancelTokenSource;
+        private const int BUFFER_SIZE = 20 * 1024;
 
         public MainWindow()
         {
@@ -38,8 +39,7 @@ namespace BigFileSplitter
 
         private void btnBrowse_Click(object sender, RoutedEventArgs e)
         {
-            pbSplit.Visibility = Visibility.Hidden;
-            pbSplit.Value = 0;
+            HideProgressBar();
 
             var openFileDialog = CreateOpenFileDialog();
             var openFileDialogResult = openFileDialog.ShowDialog(this);
@@ -57,7 +57,7 @@ namespace BigFileSplitter
 
                 btnSplit.IsEnabled = true;
 
-                pbSplit.Visibility = Visibility.Visible;
+                ResetProgressBar();
             }
             else
             {
@@ -69,6 +69,32 @@ namespace BigFileSplitter
             }
 
             openFileDialog.Reset();
+        }        
+
+        private async void btnSplit_Click(object sender, RoutedEventArgs e)
+        {
+            int mbs = int.Parse(((ComboBoxItem)cboChunks.SelectedItem).Content.ToString());
+            btnSplit.IsEnabled = btnBrowse.IsEnabled = false;
+            btnCancel.IsEnabled = true;
+            ResetProgressBar();
+
+            cancelTokenSource = new CancellationTokenSource();
+            CancellationToken token = cancelTokenSource.Token;            
+
+            // split file into chunks
+            var splitTaskResult = await Task.Run(() => SplitFileAsync(mbs, token), token);            
+
+            ShowMessage(splitTaskResult);
+
+            btnSplit.IsEnabled = btnBrowse.IsEnabled = true;
+            btnCancel.IsEnabled = false;
+            if (splitTaskResult != SplitStatusMessage.Success)
+                HideProgressBar();
+        }
+
+        private void btnCancel_Click(object sender, RoutedEventArgs e)
+        {
+            cancelTokenSource.Cancel();
         }
 
         private Microsoft.Win32.OpenFileDialog CreateOpenFileDialog()
@@ -82,53 +108,40 @@ namespace BigFileSplitter
             return dlg;
         }
 
-        private void btnSplit_Click(object sender, RoutedEventArgs e)
-        {
-            var selectedChunk = ((ComboBoxItem)cboChunks.SelectedItem).Content.ToString();
-            int chunkSize = int.Parse(selectedChunk) * 1024 * 1024;
-            const int BUFFER_SIZE = 20 * 1024;
-            byte[] buffer = new byte[BUFFER_SIZE];
-
-            SplitStatusMessage status = SplitStatusMessage.Success;
-
+        private async Task<SplitStatusMessage> SplitFileAsync(int mbSize, CancellationToken token)
+        {            
+            int chunkSize = mbSize * 1024 * 1024;            
+            byte[] buffer = new byte[BUFFER_SIZE];            
+            var status = SplitStatusMessage.Success;
+            
             try
             {
-                btnSplit.IsEnabled = btnBrowse.IsEnabled = false;
-                btnCancel.IsEnabled = true;
+                var outputDirectory = Path.Combine(OutputDirectory.FullName, SplitFileDefaultFolderName);
+                if (!Directory.Exists(outputDirectory))
+                    Directory.CreateDirectory(outputDirectory);
 
-                CancellationToken token = cancelTokenSource.Token;
-
-                Task splitTask = Task.Factory.StartNew(() => 
+                using (Stream input = File.OpenRead(FileNameAndPath))
                 {
-                    token.ThrowIfCancellationRequested();
-
-                    var outputDirectory = System.IO.Path.Combine(OutputDirectory.FullName, SplitFileDefaultFolderName);
-                    if (!Directory.Exists(outputDirectory))
-                        Directory.CreateDirectory(outputDirectory);
-
-                    using (Stream input = File.OpenRead(FileNameAndPath))
+                    int index = 1;
+                    while (input.Position < input.Length)
                     {
-                        int index = 1;
-                        while (input.Position < input.Length)
+                        using (Stream output = File.Create($"{outputDirectory}\\{Path.GetFileNameWithoutExtension(FileName)}_Split{index}{FileExtension}"))
                         {
-                            using (Stream output = File.Create($"{outputDirectory}\\{System.IO.Path.GetFileNameWithoutExtension(FileName)}_Split{index}{FileExtension}"))
+                            if (token.IsCancellationRequested)
+                                token.ThrowIfCancellationRequested();
+
+                            int remaining = chunkSize, bytesRead;
+                            while (remaining > 0 && (bytesRead = input.Read(buffer, 0, Math.Min(remaining, BUFFER_SIZE))) > 0)
                             {
-                                int remaining = chunkSize, bytesRead;
-                                while (remaining > 0 && (bytesRead = input.Read(buffer, 0, Math.Min(remaining, BUFFER_SIZE))) > 0)
-                                {
-                                    output.WriteAsync(buffer, 0, bytesRead);
-                                    remaining -= bytesRead;
-                                }
+                                await output.WriteAsync(buffer, 0, bytesRead);
+                                remaining -= bytesRead;
+                                UpdateProgressBar(input.Position, input.Length);
                             }
-
-                            UpdateProgressBar(input.Position, input.Length);
-                            index++;
-                            Thread.Sleep(500);
-                        }                        
+                        }
+                                                
+                        index++;                            
                     }
-
-                }, token);                             
-                
+                }
             }
             catch (AggregateException ex)
             {
@@ -136,12 +149,16 @@ namespace BigFileSplitter
                     status = SplitStatusMessage.Cancelled;
                 else
                     status = SplitStatusMessage.UnknownError;
-            }            
-            catch(UnauthorizedAccessException)
+            }
+            catch (OperationCanceledException)
+            {
+                status = SplitStatusMessage.Cancelled;
+            }
+            catch (UnauthorizedAccessException)
             {
                 status = SplitStatusMessage.UnauthorizedAccessError;
             }
-            catch(PathTooLongException)
+            catch (PathTooLongException)
             {
                 status = SplitStatusMessage.PathTooLongError;
             }
@@ -158,17 +175,11 @@ namespace BigFileSplitter
                 status = SplitStatusMessage.IOError;
             }
             catch (Exception)
-            {
+            {                   
                 status = SplitStatusMessage.UnknownError;
-            }
-            finally
-            {
-                ShowMessage(status);       
-                cancelTokenSource = new CancellationTokenSource();
-                
-                btnSplit.IsEnabled = btnBrowse.IsEnabled = true;
-                btnCancel.IsEnabled = false;
-            }           
+            }              
+
+            return status;          
         }
 
         private void ShowMessage(SplitStatusMessage status)
@@ -224,17 +235,24 @@ namespace BigFileSplitter
                 "Splitter Status", 
                 MessageBoxButton.OK,
                 success ? MessageBoxImage.Information : MessageBoxImage.Error);
-        }
-
-        private void btnCancel_Click(object sender, RoutedEventArgs e)
-        {
-            cancelTokenSource.Cancel();
-        }
+        }        
 
         private void UpdateProgressBar(long currentWork, long totalWork)
-        {
-            var progress = (currentWork == totalWork) ? 100 : ((currentWork/totalWork) * 100);
+        {            
+            var progress = (currentWork == totalWork) ? 100 : ((100 * currentWork/totalWork));
             pbSplit.Dispatcher.Invoke(() => pbSplit.Value = progress);
+        }
+
+        private void HideProgressBar()
+        {
+            pbSplit.Visibility = Visibility.Hidden;
+            pbSplit.Value = 0;
+        }
+
+        private void ResetProgressBar()
+        {
+            pbSplit.Value = 0;
+            pbSplit.Visibility = Visibility.Visible;            
         }
     }
 }
