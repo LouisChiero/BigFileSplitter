@@ -29,5 +29,6 @@
     <Rectangle HorizontalAlignment="Left" Height="53" Margin="8,115,0,0" Stroke="#FFF0E9E9" VerticalAlignment="Top" Width="449" Grid.ColumnSpan="2"/>
     <Button x:Name="btnSplit" Content="Split" HorizontalAlignment="Left" Margin="103,135,0,0" VerticalAlignment="Top" Width="75" IsEnabled="False" Click="btnSplit_Click"/>
     <Button x:Name="btnCancel" Content="Cancel" HorizontalAlignment="Left" Margin="61,135,0,0" VerticalAlignment="Top" Width="75" IsEnabled="False" Grid.Column="1" Click="btnCancel_Click"/>
+    <Image x:Name="imgSpinner" HorizontalAlignment="Left" Height="100" VerticalAlignment="Top" Width="100" Source="images/spinner.gif" Grid.ColumnSpan="2" Margin="207,36,0,0" Stretch="Fill" StretchDirection="DownOnly" Cursor="Arrow"/>
   </Grid>
 </Window>
