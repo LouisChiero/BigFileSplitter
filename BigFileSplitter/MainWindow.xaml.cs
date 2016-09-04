@@ -14,30 +14,55 @@ namespace BigFileSplitter
     /// </summary>
     public partial class MainWindow : Window
     {
+        #region members
         private const string SplitFileDefaultFolderName = "SplitFiles";
         private const string DefaultLabelText = "Pick a file to split...";
-        private CancellationTokenSource cancelTokenSource;
+        private Task<SplitStatusMessage> _splitFileTask;
+        private CancellationTokenSource _cancelTokenSource;
         private const int BUFFER_SIZE = 20 * 1024;
+        private bool isSplitting; 
+        #endregion
 
         public MainWindow()
         {
             InitializeComponent();
-//#if DEBUG
-//            pbSplit.Visibility = Visibility.Visible;
-//#endif
+
             lblBigFile.Content = DefaultLabelText;
             Closing += (o, args) => 
             {
-                if (cancelTokenSource != null)
-                    cancelTokenSource.Dispose();
+                if (isSplitting)
+                {
+                    var result = MessageBox.Show(
+                        "Click Yes to cancel your split, or No to continue splitting.",
+                        "Cancel Split?",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Question);
+                    
+                    args.Cancel = result == MessageBoxResult.No;
+                    if (!args.Cancel)
+                    {
+                        if (!_splitFileTask.IsCompleted)
+                            _cancelTokenSource.Cancel();                                                
+                    }                       
+                }
+                else
+                {
+                    if (_cancelTokenSource != null)
+                        _cancelTokenSource.Dispose();
+                    if (_splitFileTask != null && _splitFileTask.IsCompleted)
+                        _splitFileTask.Dispose();
+                }
             };          
-        }    
+        }
 
+        #region properties
         private string FileNameAndPath { get; set; }
         private string FileName { get; set; }
         private string FileExtension { get; set; }
         private DirectoryInfo OutputDirectory { get; set; }
+        #endregion
 
+        #region event handlers
         private void btnBrowse_Click(object sender, RoutedEventArgs e)
         {
             HideProgressBar();
@@ -51,7 +76,7 @@ namespace BigFileSplitter
                 FileNameAndPath = openFileDialog.FileName;
                 FileInfo file = new FileInfo(FileNameAndPath);
                 FileName = file.Name;
-                FileExtension = file.Extension;               
+                FileExtension = file.Extension;
                 OutputDirectory = file.Directory;
 
                 lblBigFile.Content = $"Splitting {file.Name}";
@@ -64,41 +89,45 @@ namespace BigFileSplitter
             else
             {
                 FileNameAndPath = FileName = FileExtension = string.Empty;
-                OutputDirectory = null;               
+                OutputDirectory = null;
 
                 lblBigFile.Content = DefaultLabelText;
                 btnSplit.IsEnabled = btnCancel.IsEnabled = false;
             }
 
             openFileDialog.Reset();
-        }        
+        }
 
         private async void btnSplit_Click(object sender, RoutedEventArgs e)
         {
+            isSplitting = true;
             int mbs = int.Parse(((ComboBoxItem)cboChunks.SelectedItem).Content.ToString());
+
             btnSplit.IsEnabled = btnBrowse.IsEnabled = false;
             btnCancel.IsEnabled = true;
             ResetProgressBar();
             ShowSpinner();
 
-            cancelTokenSource = new CancellationTokenSource();
-            CancellationToken token = cancelTokenSource.Token;            
+            _cancelTokenSource = new CancellationTokenSource();
+            CancellationToken token = _cancelTokenSource.Token;
 
             // split file into chunks
-            var splitTaskResult = await Task.Run(() => SplitFileAsync(mbs, token), token);
+            _splitFileTask = Task.Run(() => SplitFileAsync(mbs, token));
+            var splitTaskResult = await _splitFileTask;
 
             HideSpinner();
             ShowMessage(splitTaskResult);
 
             btnSplit.IsEnabled = btnBrowse.IsEnabled = true;
             btnCancel.IsEnabled = false;
+            isSplitting = false;
             if (splitTaskResult != SplitStatusMessage.Success)
-                HideProgressBar();            
+                HideProgressBar();
         }
 
         private void btnCancel_Click(object sender, RoutedEventArgs e)
         {
-            cancelTokenSource.Cancel();
+            _cancelTokenSource.Cancel();
         }
 
         private Microsoft.Win32.OpenFileDialog CreateOpenFileDialog()
@@ -111,13 +140,15 @@ namespace BigFileSplitter
 
             return dlg;
         }
+        #endregion
 
+        #region methods
         private async Task<SplitStatusMessage> SplitFileAsync(int mbSize, CancellationToken token)
-        {            
-            int chunkSize = mbSize * 1024 * 1024;            
-            byte[] buffer = new byte[BUFFER_SIZE];            
+        {
+            int chunkSize = mbSize * 1024 * 1024;
+            byte[] buffer = new byte[BUFFER_SIZE];
             var status = SplitStatusMessage.Success;
-            
+
             try
             {
                 var outputDirectory = Path.Combine(OutputDirectory.FullName, SplitFileDefaultFolderName);
@@ -142,8 +173,8 @@ namespace BigFileSplitter
                                 UpdateProgressBar(input.Position, input.Length);
                             }
                         }
-                                                
-                        index++;                            
+
+                        index++;
                     }
                 }
             }
@@ -179,18 +210,18 @@ namespace BigFileSplitter
                 status = SplitStatusMessage.IOError;
             }
             catch (Exception)
-            {                   
+            {
                 status = SplitStatusMessage.UnknownError;
-            }              
+            }
 
-            return status;          
+            return status;
         }
 
         private void ShowMessage(SplitStatusMessage status)
         {
             bool success = status == SplitStatusMessage.Success;
             string messageText = string.Empty;
-            switch(status)
+            switch (status)
             {
                 case SplitStatusMessage.Cancelled:
                     {
@@ -211,7 +242,7 @@ namespace BigFileSplitter
                     {
                         messageText = "Split failed due to a not supported error.";
                         break;
-                    }                
+                    }
                 case SplitStatusMessage.PathTooLongError:
                     {
                         messageText = "Split failed due to a path too long error.";
@@ -235,15 +266,15 @@ namespace BigFileSplitter
             }
 
             MessageBox.Show(
-                messageText, 
-                "Splitter Status", 
+                messageText,
+                "Splitter Status",
                 MessageBoxButton.OK,
                 success ? MessageBoxImage.Information : MessageBoxImage.Error);
-        }        
+        }
 
         private void UpdateProgressBar(long currentWork, long totalWork)
-        {            
-            var progress = (currentWork == totalWork) ? 100 : ((100 * currentWork/totalWork));
+        {
+            var progress = (currentWork == totalWork) ? 100 : ((100 * currentWork / totalWork));
             pbSplit.Dispatcher.Invoke(() => pbSplit.Value = progress);
         }
 
@@ -256,7 +287,7 @@ namespace BigFileSplitter
         private void ResetProgressBar()
         {
             pbSplit.Value = 0;
-            pbSplit.Visibility = Visibility.Visible;            
+            pbSplit.Visibility = Visibility.Visible;
         }
 
         private void HideSpinner()
@@ -276,7 +307,8 @@ namespace BigFileSplitter
             imgSpinner.RenderTransform = rotate;
             rotate.BeginAnimation(RotateTransform.AngleProperty, animation);
 
-            imgSpinner.Visibility = Visibility.Visible;           
-        }        
+            imgSpinner.Visibility = Visibility.Visible;
+        }         
+        #endregion
     }
 }
