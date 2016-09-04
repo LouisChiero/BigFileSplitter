@@ -5,16 +5,35 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:BigFileSplitter"
         mc:Ignorable="d"
-        Title="Big File Splitter" WindowStyle="ThreeDBorderWindow" WindowStartupLocation="CenterScreen" HorizontalAlignment="Center" VerticalAlignment="Center" Width="484.737" ResizeMode="NoResize" Height="216.885">
+        Title="Big File Splitter" WindowStyle="ThreeDBorderWindow" WindowStartupLocation="CenterScreen" HorizontalAlignment="Center" VerticalAlignment="Center" Width="484.737" ResizeMode="NoResize" Height="216.885" Background="#FF7D4040" Foreground="{x:Null}" Margin="0" UseLayoutRounding="True" FontWeight="Bold" Icon="images/split.ico">
   <Grid>
+    <Grid.Background>
+      <RadialGradientBrush>
+        <GradientStop Color="Black" Offset="1"/>
+        <GradientStop Color="#FF1AFFDC"/>
+      </RadialGradientBrush>
+    </Grid.Background>
+    <Grid.OpacityMask>
+      <LinearGradientBrush EndPoint="0.5,1" StartPoint="0.5,0">
+        <GradientStop Color="Black" Offset="0"/>
+        <GradientStop Color="#FF1E2479" Offset="1"/>
+      </LinearGradientBrush>
+    </Grid.OpacityMask>
     <Grid.ColumnDefinitions>
       <ColumnDefinition Width="239*"/>
       <ColumnDefinition Width="240*"/>
     </Grid.ColumnDefinitions>
     <ProgressBar x:Name="pbSplit" HorizontalAlignment="Left" Height="10" Margin="10,13,0,0" VerticalAlignment="Top" Width="447" Background="#FFF5F4F4" Visibility="Hidden" Grid.ColumnSpan="2"/>
-    <Button x:Name="btnBrowse" Content="Browse" HorizontalAlignment="Left" Margin="101.521,39,0,0" VerticalAlignment="Top" Width="108" Click="btnBrowse_Click" Height="28" Grid.Column="1"/>
-    <Label x:Name="lblBigFile" Content="Pick a file to split..." HorizontalAlignment="Left" Margin="12,36,0,0" VerticalAlignment="Top" Width="301" IsEnabled="False" BorderThickness="1" FontFamily="Segoe UI Black" Height="31" FontWeight="Bold" Grid.ColumnSpan="2"/>
-    <ComboBox x:Name="cboChunks" HorizontalAlignment="Left" Margin="101.521,84,0,0" VerticalAlignment="Top" Width="120" Grid.Column="1">
+    <Button x:Name="btnBrowse" Content="Browse" HorizontalAlignment="Left" Margin="101.521,39,0,0" VerticalAlignment="Top" Width="108" Click="btnBrowse_Click" Height="28" Grid.Column="1" Background="{DynamicResource {x:Static SystemColors.GradientActiveCaptionBrushKey}}" BorderBrush="{DynamicResource {x:Static SystemColors.HighlightBrushKey}}" Foreground="{DynamicResource {x:Static SystemColors.MenuHighlightBrushKey}}">
+      <Button.Effect>
+        <DropShadowEffect/>
+      </Button.Effect>
+    </Button>
+    <Label x:Name="lblBigFile" Content="Pick a file to split..." HorizontalAlignment="Left" Margin="12,36,0,0" VerticalAlignment="Top" Width="301" BorderThickness="1" Height="31" FontWeight="Bold" Grid.ColumnSpan="2" Background="{x:Null}" FontFamily="Segoe UI Black" Foreground="White"/>
+    <ComboBox x:Name="cboChunks" HorizontalAlignment="Left" Margin="101.521,84,0,0" VerticalAlignment="Top" Width="120" Grid.Column="1" Background="{DynamicResource {x:Static SystemColors.GradientActiveCaptionBrushKey}}" BorderBrush="{DynamicResource {x:Static SystemColors.HighlightBrushKey}}">
+      <ComboBox.Effect>
+        <DropShadowEffect/>
+      </ComboBox.Effect>
       <ComboBoxItem Content="100" IsSelected="True"/>
       <ComboBoxItem Content="200"/>
       <ComboBoxItem Content="300"/>
@@ -25,10 +44,18 @@
       <ComboBoxItem Content="800"/>
       <ComboBoxItem Content="900"/>
     </ComboBox>
-    <Label x:Name="lblChunksMessage" Content="Pick a split file size (in MBs)" HorizontalAlignment="Left" Margin="12,81,0,0" VerticalAlignment="Top" Width="301" IsEnabled="False" BorderThickness="1" FontFamily="Segoe UI Black" Height="31" FontWeight="Bold" Grid.ColumnSpan="2"/>
+    <Label x:Name="lblChunksMessage" Content="Pick a split file size (in MBs)" HorizontalAlignment="Left" Margin="12,81,0,0" VerticalAlignment="Top" Width="301" IsEnabled="False" BorderThickness="1" FontFamily="Segoe UI Black" Height="31" FontWeight="Bold" Grid.ColumnSpan="2" Foreground="White"/>
     <Rectangle HorizontalAlignment="Left" Height="53" Margin="8,115,0,0" Stroke="#FFF0E9E9" VerticalAlignment="Top" Width="449" Grid.ColumnSpan="2"/>
-    <Button x:Name="btnSplit" Content="Split" HorizontalAlignment="Left" Margin="103,135,0,0" VerticalAlignment="Top" Width="75" IsEnabled="False" Click="btnSplit_Click"/>
-    <Button x:Name="btnCancel" Content="Cancel" HorizontalAlignment="Left" Margin="61,135,0,0" VerticalAlignment="Top" Width="75" IsEnabled="False" Grid.Column="1" Click="btnCancel_Click"/>
-    <Image x:Name="imgSpinner" HorizontalAlignment="Left" Height="100" VerticalAlignment="Top" Width="100" Source="images/spinner.gif" Grid.ColumnSpan="2" Margin="207,36,0,0" Stretch="Fill" StretchDirection="DownOnly" Cursor="Arrow"/>
+    <Button x:Name="btnSplit" Content="Split" HorizontalAlignment="Left" Margin="103,135,0,0" VerticalAlignment="Top" Width="75" Click="btnSplit_Click" Background="{DynamicResource {x:Static SystemColors.GradientActiveCaptionBrushKey}}" BorderBrush="{DynamicResource {x:Static SystemColors.MenuHighlightBrushKey}}" Foreground="{DynamicResource {x:Static SystemColors.MenuHighlightBrushKey}}" IsEnabled="False">
+      <Button.Effect>
+        <DropShadowEffect/>
+      </Button.Effect>
+    </Button>
+    <Button x:Name="btnCancel" Content="Cancel" HorizontalAlignment="Left" Margin="61,135,0,0" VerticalAlignment="Top" Width="75" Grid.Column="1" Click="btnCancel_Click" BorderBrush="{DynamicResource {x:Static SystemColors.HighlightBrushKey}}" Foreground="{DynamicResource {x:Static SystemColors.HighlightBrushKey}}" Background="{DynamicResource {x:Static SystemColors.GradientActiveCaptionBrushKey}}" IsEnabled="False">
+      <Button.Effect>
+        <DropShadowEffect/>
+      </Button.Effect>
+    </Button>
+    <Image x:Name="imgSpinner" Height="100" Width="64" Source="images/spinner.gif" Margin="207,42,0,46.667" Cursor="Arrow" RenderTransformOrigin="0.5,0.5" HorizontalAlignment="Left" Stretch="None" StretchDirection="DownOnly" Grid.ColumnSpan="2" Visibility="Hidden"/>
   </Grid>
 </Window>

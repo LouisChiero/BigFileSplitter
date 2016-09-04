@@ -4,6 +4,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Media.Animation;
 
 namespace BigFileSplitter
 {
@@ -24,12 +26,11 @@ namespace BigFileSplitter
 //            pbSplit.Visibility = Visibility.Visible;
 //#endif
             lblBigFile.Content = DefaultLabelText;
-
             Closing += (o, args) => 
             {
                 if (cancelTokenSource != null)
                     cancelTokenSource.Dispose();
-            };
+            };          
         }    
 
         private string FileNameAndPath { get; set; }
@@ -40,6 +41,7 @@ namespace BigFileSplitter
         private void btnBrowse_Click(object sender, RoutedEventArgs e)
         {
             HideProgressBar();
+            HideSpinner();
 
             var openFileDialog = CreateOpenFileDialog();
             var openFileDialogResult = openFileDialog.ShowDialog(this);
@@ -77,19 +79,21 @@ namespace BigFileSplitter
             btnSplit.IsEnabled = btnBrowse.IsEnabled = false;
             btnCancel.IsEnabled = true;
             ResetProgressBar();
+            ShowSpinner();
 
             cancelTokenSource = new CancellationTokenSource();
             CancellationToken token = cancelTokenSource.Token;            
 
             // split file into chunks
-            var splitTaskResult = await Task.Run(() => SplitFileAsync(mbs, token), token);            
+            var splitTaskResult = await Task.Run(() => SplitFileAsync(mbs, token), token);
 
+            HideSpinner();
             ShowMessage(splitTaskResult);
 
             btnSplit.IsEnabled = btnBrowse.IsEnabled = true;
             btnCancel.IsEnabled = false;
             if (splitTaskResult != SplitStatusMessage.Success)
-                HideProgressBar();
+                HideProgressBar();            
         }
 
         private void btnCancel_Click(object sender, RoutedEventArgs e)
@@ -254,5 +258,25 @@ namespace BigFileSplitter
             pbSplit.Value = 0;
             pbSplit.Visibility = Visibility.Visible;            
         }
+
+        private void HideSpinner()
+        {
+            imgSpinner.Visibility = Visibility.Hidden;
+            imgSpinner.RenderTransform = null;
+        }
+
+        private void ShowSpinner()
+        {
+            var animation = new DoubleAnimation(360, 0, new Duration(TimeSpan.FromSeconds(1)))
+            {
+                RepeatBehavior = RepeatBehavior.Forever
+            };
+
+            var rotate = new RotateTransform();
+            imgSpinner.RenderTransform = rotate;
+            rotate.BeginAnimation(RotateTransform.AngleProperty, animation);
+
+            imgSpinner.Visibility = Visibility.Visible;           
+        }        
     }
 }
